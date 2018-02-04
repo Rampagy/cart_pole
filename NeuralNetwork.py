@@ -25,52 +25,60 @@ class Control_Model():
         network = fully_connected(network, 256, activation='relu')
         network = dropout(network, 0.8)
         network = fully_connected(network, 2, activation='softmax')
-        network = regression(network, optimizer='adam', learning_rate=0.01,
+        network = regression(network, optimizer='adam', learning_rate=0.001,
                              loss='categorical_crossentropy', name='target')
 
         self.comp_graph = network
-
         self.model = tflearn.DNN(self.comp_graph, tensorboard_verbose=0,
                                 tensorboard_dir='tb_dir')
+        self.has_weights = False
 
         if tf.train.latest_checkpoint('Model/') != None:
             self.model.load('Model/model.ckpt')
+            self.has_weights = True
 
 
-    def predict_move(self, observations):
-        # reshape the board_state
-        self.current_observs = np.array(observations,
-            dtype=np.float32, ndmin=2)
+    def predict_move(self, observations, train=True):
+        if self.has_weights:
+            # reshape the board_state
+            self.current_observs = np.array(observations,
+                dtype=np.float32, ndmin=2)
 
-        position_probabilities = self.model.predict(self.current_observs)
-        position_probabilities = np.squeeze(position_probabilities)
+            position_probabilities = self.model.predict(self.current_observs)
+            position_probabilities = np.squeeze(position_probabilities)
 
-        move = 0
-        prev_prob = 0
-        onehot_count = 0
+            if not train:
+                return np.argmax(position_probabilities)
 
-        # pick a random number between 0 and 1
-        uniform_num = np.random.uniform(0, 1)
+            move = 0
+            prev_prob = 0
+            onehot_count = 0
 
-        # check to see which 'window' the random number is in
-        for probability in position_probabilities:
-            if ((prev_prob <= uniform_num) and \
-                (uniform_num <= prev_prob + probability)):
-                    move = onehot_count
-                    break
+            # pick a random number between 0 and 1
+            uniform_num = np.random.uniform(0, 1)
 
-            prev_prob += probability
-            onehot_count += 1
+            # check to see which 'window' the random number is in
+            for probability in position_probabilities:
+                if ((prev_prob <= uniform_num) and \
+                    (uniform_num <= prev_prob + probability)):
+                        move = onehot_count
+                        break
 
-        return move
+                prev_prob += probability
+                onehot_count += 1
+
+            return move
+        else:
+            return np.random.randint(0, 2)
 
 
     def train_game(self, features, labels):
         # Train the model
         labels = to_categorical(y=labels, nb_classes=2)
-        self.model.fit({'input': features}, {'target': labels}, n_epoch=5,
+        self.model.fit({'input': features}, {'target': labels}, n_epoch=3,
                   show_metric=False, batch_size=100, run_id='tensorboard_log',
                   shuffle=True)
+        self.has_weights = True
 
         # remove all previous tensorboard files
         folder = 'tb_dir/tensorboard_log'
