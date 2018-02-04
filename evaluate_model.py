@@ -4,7 +4,7 @@ import NeuralNetwork as nn
 
 def EvalModel(model, env=gym.make('CartPole-v1')):
     cumulative_reward = 0
-    num_of_games = 30
+    num_of_games = 100
 
     for i in range(num_of_games):
         observation = env.reset()
@@ -12,8 +12,9 @@ def EvalModel(model, env=gym.make('CartPole-v1')):
         done = False
 
         while not done:
-            # render for viewing experience
-            env.render()
+            if i < 5:
+                # render for viewing experience
+                env.render()
 
             action = model.predict_move(observation, train=False)
 
